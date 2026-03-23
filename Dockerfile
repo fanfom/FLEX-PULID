@@ -11,8 +11,9 @@ RUN apt-get update -y && \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. Установка Python пакетов
-RUN pip install --no-cache-dir \
+# 2. Фикс совместимости NumPy
+RUN pip install --no-cache-dir "numpy<2" && \
+    pip install --no-cache-dir \
     insightface==0.7.3 \
     onnxruntime-gpu==1.17.1 \
     opencv-python-headless==4.9.0.80 \
@@ -20,11 +21,15 @@ RUN pip install --no-cache-dir \
     scipy==1.13.0 \
     Pillow==10.2.0
 
-# 3. Скачивание PuLID из стабильного репозитория
+# 3. Правильная установка PuLID
 RUN cd /comfyui/custom_nodes && \
     wget -q https://github.com/ToTheBeginning/PuLID/archive/refs/heads/main.zip -O pulid.zip && \
     unzip -q pulid.zip && \
     mv PuLID-main ComfyUI-PuLID && \
+    cd ComfyUI-PuLID && \
+    mv ComfyUI-PuLID/* . && \
+    rm -rf ComfyUI-PuLID && \
+    cd .. && \
     rm pulid.zip
 
 # 4. Настройка InsightFace
@@ -35,3 +40,15 @@ RUN mkdir -p /home/runpod/.insightface && \
 # 5. Создание конфига
 RUN printf "insightface:\n  base_path: %s\npulid:\n  base_path: %s/models/pulid\ncontrolnet:\n  base_path: %s/models/controlnet\nclip_vision:\n  base_path: %s/models/clip_vision" \
     "$INSIGHTFACE_ROOT" "$INSIGHTFACE_ROOT" "$INSIGHTFACE_ROOT" "$INSIGHTFACE_ROOT" > /comfyui/extra_model_paths.yaml
+
+# 6. Проверка установки PuLID
+RUN ls -la /comfyui/custom_nodes/ComfyUI-PuLID && \
+    test -f /comfyui/custom_nodes/ComfyUI-PuLID/__init__.py
+
+# 7. Установка прав
+RUN chown -R runpod:runpod /comfyui /home/runpod
+
+# 8. Запуск обработчика
+CMD ["python", "-u", "/comfyui/handler.py"]
+
+USER runpod
