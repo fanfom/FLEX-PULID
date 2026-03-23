@@ -1,5 +1,3 @@
-### 🚀 Исправленный Dockerfile с репозиторием PuLID от ToTheBeginning
-
 FROM runpod/worker-comfyui:5.8.5-flux1-dev
 
 USER root
@@ -42,12 +40,3 @@ RUN printf "insightface:\n  base_path: %s\npulid:\n  base_path: %s/models/pulid\
 RUN chown -R runpod:runpod /comfyui /home/runpod
 
 USER runpod
-```
-
-### 🔍 Ключевые изменения:
-
-1. **Используем стабильный репозиторий PuLID**:
-   ```dockerfile
-   wget -q https://github.com/ToTheBeginning/PuLID/archive/refs/heads/main.zip
-   mv PuLID-main ComfyUI-PuLID
-   ```
