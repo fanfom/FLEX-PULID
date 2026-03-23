@@ -21,12 +21,15 @@ RUN pip install --no-cache-dir "numpy<2" && \
     scipy==1.13.0 \
     Pillow==10.2.0
 
-# 3. Установка PuLID
+# 3. Установка PuLID с исправлением структуры
 RUN cd /comfyui/custom_nodes && \
     wget -q https://github.com/ToTheBeginning/PuLID/archive/refs/heads/main.zip -O pulid.zip && \
     unzip -q pulid.zip && \
     mv PuLID-main ComfyUI-PuLID && \
-    rm pulid.zip
+    rm pulid.zip && \
+    # Создаем недостающий __init__.py
+    echo "from .nodes import NODE_CLASS_MAPPINGS, NODE_DISPLAY_NAME_MAPPINGS" > ComfyUI-PuLID/__init__.py && \
+    echo "__all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS']" >> ComfyUI-PuLID/__init__.py
 
 # 4. Настройка InsightFace
 ENV INSIGHTFACE_ROOT=/runpod-volume/models/insightface
@@ -38,10 +41,17 @@ RUN mkdir -p $INSIGHTFACE_ROOT && \
 RUN printf "insightface:\n  base_path: %s\npulid:\n  base_path: %s/models/pulid\ncontrolnet:\n  base_path: %s/models/controlnet\nclip_vision:\n  base_path: %s/models/clip_vision" \
     "$INSIGHTFACE_ROOT" "$INSIGHTFACE_ROOT" "$INSIGHTFACE_ROOT" "$INSIGHTFACE_ROOT" > /comfyui/extra_model_paths.yaml
 
-# 6. Проверка наличия handler.py
+# 6. Исправление handler.py
 RUN if [ ! -f "/comfyui/handler.py" ]; then \
         echo "from ComfyUI_handler import ComfyUI_Handler" > /comfyui/handler.py; \
+        echo "handler = ComfyUI_Handler()" >> /comfyui/handler.py; \
     fi
 
-# 7. Запуск обработчика
+# 7. Проверка установки (для отладки)
+RUN echo "Проверка PuLID:" && \
+    ls -la /comfyui/custom_nodes/ComfyUI-PuLID && \
+    echo "Содержимое __init__.py:" && \
+    cat /comfyui/custom_nodes/ComfyUI-PuLID/__init__.py
+
+# 8. Запуск обработчика
 CMD ["python", "-u", "/comfyui/handler.py"]
