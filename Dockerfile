@@ -1,5 +1,5 @@
 # Используем современный стабильный образ
-FROM runpod/worker-comfyui:6.1.2-fp16
+FROM runpod/worker-comfyui:5.8.5-flux1-dev
 
 USER root
 
