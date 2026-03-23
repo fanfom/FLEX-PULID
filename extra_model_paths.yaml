@@ -1,0 +1,11 @@
+comfyui:
+    base_path: /runpod-volume
+    checkpoints: models/checkpoints/
+    clip: models/clip/
+    vae: models/vae/
+    loras: models/loras/
+    upscale_models: models/upscale_models/
+    controlnet: models/controlnet/
+    # Специфические пути для PuLID и InsightFace
+    pulid: models/pulid/
+    insightface: models/insightface/
