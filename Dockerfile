@@ -2,9 +2,11 @@ FROM runpod/worker-comfyui:5.8.5-flux1-dev
 
 USER root
 
-# 1. Установка зависимостей (без Git)
+# 1. Установка всех зависимостей включая curl (вместо wget)
 RUN apt-get update -y && \
     apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
     python3-dev \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
@@ -16,28 +18,24 @@ RUN pip install --no-cache-dir \
     opencv-python-headless==4.9.0.80 \
     scikit-image==0.22.0 \
     scipy==1.13.0 \
-    Pillow>=10.0.0
+    Pillow==10.2.0
 
-# 3. Скачивание PuLID с помощью wget вместо Git
-RUN mkdir -p /comfyui/custom_nodes/ComfyUI-PuLID-Flux && \
-    cd /comfyui/custom_nodes/ComfyUI-PuLID-Flux && \
-    wget -q -O - https://github.com/balmante/ComfyUI-PuLID-Flux/archive/refs/heads/flux-integration.tar.gz | tar xz --strip-components=1
+# 3. Создание целевой директории для PuLID
+RUN mkdir -p /comfyui/custom_nodes/ComfyUI-PuLID-Flux
 
-# 4. Настройка InsightFace (без использования кириллических символов)
+# 4. Загрузка файлов PuLID напрямую через GitHub API
+RUN curl -sL https://api.github.com/repos/balmante/ComfyUI-PuLID-Flux/tarball/flux-integration | \
+    tar -xz --strip-components=1 -C /comfyui/custom_nodes/ComfyUI-PuLID-Flux
+
+# 5. Настройка InsightFace через переменную окружения
+ENV INSIGHTFACE_ROOT=/runpod-volume/models/insightface
 RUN mkdir -p /home/runpod/.insightface && \
-    ln -s /runpod-volume/models/insightface /home/runpod/.insightface/models
+    ln -s $INSIGHTFACE_ROOT /home/runpod/.insightface/models
 
-# 5. Встроенное создание конфигурационного файла
-RUN echo "insightface:" > /comfyui/extra_model_paths.yaml && \
-    echo "  base_path: /runpod-volume/models/insightface" >> /comfyui/extra_model_paths.yaml && \
-    echo "pulid:" >> /comfyui/extra_model_paths.yaml && \
-    echo "  base_path: /runpod-volume/models/pulid" >> /comfyui/extra_model_paths.yaml && \
-    echo "controlnet:" >> /comfyui/extra_model_paths.yaml && \
-    echo "  base_path: /runpod-volume/models/controlnet" >> /comfyui/extra_model_paths.yaml && \
-    echo "clip_vision:" >> /comfyui/extra_model_paths.yaml && \
-    echo "  base_path: /runpod-volume/models/clip_vision" >> /comfyui/extra_model_paths.yaml
+# 6. Создание конфига
+RUN printf "insightface:\n  base_path: /runpod-volume/models/insightface\npulid:\n  base_path: /runpod-volume/models/pulid\ncontrolnet:\n  base_path: /runpod-volume/models/controlnet\nclip_vision:\n  base_path: /runpod-volume/models/clip_vision" > /comfyui/extra_model_paths.yaml
 
-# 6. Установка прав
+# 7. Установка владельца
 RUN chown -R runpod:runpod /comfyui /home/runpod
 
 USER runpod
