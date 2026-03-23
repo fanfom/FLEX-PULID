@@ -21,7 +21,7 @@ RUN pip install --no-cache-dir "numpy<2" && \
     scipy==1.13.0 \
     Pillow==10.2.0
 
-# 3. Установка PuLID с исправленной структурой
+# 3. Установка PuLID
 RUN cd /comfyui/custom_nodes && \
     wget -q https://github.com/ToTheBeginning/PuLID/archive/refs/heads/main.zip -O pulid.zip && \
     unzip -q pulid.zip && \
@@ -30,17 +30,13 @@ RUN cd /comfyui/custom_nodes && \
 
 # 4. Настройка InsightFace
 ENV INSIGHTFACE_ROOT=/runpod-volume/models/insightface
-RUN mkdir -p /home/runpod/.insightface && \
-    ln -s $INSIGHTFACE_ROOT /home/runpod/.insightface/models
+RUN mkdir -p $INSIGHTFACE_ROOT && \
+    mkdir -p /root/.insightface && \
+    ln -s $INSIGHTFACE_ROOT /root/.insightface/models
 
 # 5. Создание конфига
 RUN printf "insightface:\n  base_path: %s\npulid:\n  base_path: %s/models/pulid\ncontrolnet:\n  base_path: %s/models/controlnet\nclip_vision:\n  base_path: %s/models/clip_vision" \
     "$INSIGHTFACE_ROOT" "$INSIGHTFACE_ROOT" "$INSIGHTFACE_ROOT" "$INSIGHTFACE_ROOT" > /comfyui/extra_model_paths.yaml
 
-# 6. Установка прав (без лишних проверок)
-RUN chown -R runpod:runpod /comfyui /home/runpod
-
-# 7. Запуск обработчика
+# 6. Запуск обработчика
 CMD ["python", "-u", "/comfyui/handler.py"]
-
-USER runpod
