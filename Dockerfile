@@ -1,35 +1,38 @@
-# Используем современный стабильный образ
 FROM runpod/worker-comfyui:5.8.5-flux1-dev
 
 USER root
 
-# Установка системных зависимостей
+# 1. Установка Git и зависимостей
 RUN apt-get update -y && \
     apt-get install -y --no-install-recommends \
+    git \
     python3-dev \
     build-essential \
-    && apt-get clean autoclean \
-    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+    && rm -rf /var/lib/apt/lists/*
 
-# Установка Python-пакетов (без комментариев внутри!)
+# 2. Установка Python пакетов
 RUN pip install --no-cache-dir \
     insightface==0.7.3 \
-    onnxruntime-gpu==1.18.0 \
+    onnxruntime-gpu \
     opencv-python-headless \
     scikit-image \
     scipy \
     Pillow
 
-# Клонирование PuLID
+# 3. Клонирование PuLID с прямой указанием пути
 RUN cd /comfyui/custom_nodes && \
-    git clone --branch main --depth 1 \
-    https://github.com/balmante/ComfyUI-PuLID-Flux.git && \
-    chown -R runpod:runpod ComfyUI-PuLID-Flux
+    git clone https://github.com/balmante/ComfyUI-PuLID-Flux.git && \
+    cd ComfyUI-PuLID-Flux && \
+    git checkout flux-integration
 
-# Настройка InsightFace
-ENV INSIGHTFACE_ROOT=/runpod-volume/models/insightface
+# 4. Настройка InsightFace
+RUN mkdir -p /home/runpod/.insightface && \
+    ln -s /runpod-volume/models/insightface /home/runpod/.insightface/models
 
-# Копирование конфига
-COPY extra_model_paths.yaml /comfyui/config/
+# 5. Копирование конфига
+COPY extra_model_paths.yaml /comfyui/  # Не в config!
+
+# 6. Права доступа
+RUN chown -R runpod:runpod /comfyui /home/runpod
 
 USER runpod
