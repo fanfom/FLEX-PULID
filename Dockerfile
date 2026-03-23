@@ -21,15 +21,11 @@ RUN pip install --no-cache-dir "numpy<2" && \
     scipy==1.13.0 \
     Pillow==10.2.0
 
-# 3. Правильная установка PuLID
+# 3. Установка PuLID (исправленная)
 RUN cd /comfyui/custom_nodes && \
     wget -q https://github.com/ToTheBeginning/PuLID/archive/refs/heads/main.zip -O pulid.zip && \
     unzip -q pulid.zip && \
     mv PuLID-main ComfyUI-PuLID && \
-    cd ComfyUI-PuLID && \
-    mv ComfyUI-PuLID/* . && \
-    rm -rf ComfyUI-PuLID && \
-    cd .. && \
     rm pulid.zip
 
 # 4. Настройка InsightFace
