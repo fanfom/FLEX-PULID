@@ -1,5 +1,4 @@
-.git
-.gitignore
+git
+.DS_Store
 *.log
-*.md
-.dockerignore
+__pycache__
