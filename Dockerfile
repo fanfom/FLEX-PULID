@@ -1,6 +1,5 @@
 ### 🚀 Исправленный Dockerfile с репозиторием PuLID от ToTheBeginning
 
-```dockerfile
 FROM runpod/worker-comfyui:5.8.5-flux1-dev
 
 USER root
