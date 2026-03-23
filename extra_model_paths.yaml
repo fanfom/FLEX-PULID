@@ -9,3 +9,6 @@ comfyui:
     # Специфические пути для PuLID и InsightFace
     pulid: models/pulid/
     insightface: models/insightface/
+    pulid: /models/pulid
+    controlnet: /models/controlnet
+clip_vision: /models/clip_vision
