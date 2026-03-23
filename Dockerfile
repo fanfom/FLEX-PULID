@@ -35,8 +35,3 @@ RUN mkdir -p /home/runpod/.insightface && \
 # 5. Создание конфига
 RUN printf "insightface:\n  base_path: %s\npulid:\n  base_path: %s/models/pulid\ncontrolnet:\n  base_path: %s/models/controlnet\nclip_vision:\n  base_path: %s/models/clip_vision" \
     "$INSIGHTFACE_ROOT" "$INSIGHTFACE_ROOT" "$INSIGHTFACE_ROOT" "$INSIGHTFACE_ROOT" > /comfyui/extra_model_paths.yaml
-
-# 6. Установка прав
-RUN chown -R runpod:runpod /comfyui /home/runpod
-
-USER runpod
