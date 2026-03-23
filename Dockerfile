@@ -1,12 +1,15 @@
+### 🚀 Исправленный Dockerfile с репозиторием PuLID от ToTheBeginning
+
+```dockerfile
 FROM runpod/worker-comfyui:5.8.5-flux1-dev
 
 USER root
 
-# 1. Установка всех зависимостей включая curl (вместо wget)
+# 1. Установка зависимостей
 RUN apt-get update -y && \
     apt-get install -y --no-install-recommends \
-    ca-certificates \
-    curl \
+    wget \
+    unzip \
     python3-dev \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
@@ -20,22 +23,32 @@ RUN pip install --no-cache-dir \
     scipy==1.13.0 \
     Pillow==10.2.0
 
-# 3. Создание целевой директории для PuLID
-RUN mkdir -p /comfyui/custom_nodes/ComfyUI-PuLID-Flux
+# 3. Скачивание PuLID из стабильного репозитория
+RUN cd /comfyui/custom_nodes && \
+    wget -q https://github.com/ToTheBeginning/PuLID/archive/refs/heads/main.zip -O pulid.zip && \
+    unzip -q pulid.zip && \
+    mv PuLID-main ComfyUI-PuLID && \
+    rm pulid.zip
 
-# 4. Загрузка файлов PuLID напрямую через GitHub API
-RUN curl -sL https://api.github.com/repos/balmante/ComfyUI-PuLID-Flux/tarball/flux-integration | \
-    tar -xz --strip-components=1 -C /comfyui/custom_nodes/ComfyUI-PuLID-Flux
-
-# 5. Настройка InsightFace через переменную окружения
+# 4. Настройка InsightFace
 ENV INSIGHTFACE_ROOT=/runpod-volume/models/insightface
 RUN mkdir -p /home/runpod/.insightface && \
     ln -s $INSIGHTFACE_ROOT /home/runpod/.insightface/models
 
-# 6. Создание конфига
-RUN printf "insightface:\n  base_path: /runpod-volume/models/insightface\npulid:\n  base_path: /runpod-volume/models/pulid\ncontrolnet:\n  base_path: /runpod-volume/models/controlnet\nclip_vision:\n  base_path: /runpod-volume/models/clip_vision" > /comfyui/extra_model_paths.yaml
+# 5. Создание конфига
+RUN printf "insightface:\n  base_path: %s\npulid:\n  base_path: %s/models/pulid\ncontrolnet:\n  base_path: %s/models/controlnet\nclip_vision:\n  base_path: %s/models/clip_vision" \
+    "$INSIGHTFACE_ROOT" "$INSIGHTFACE_ROOT" "$INSIGHTFACE_ROOT" "$INSIGHTFACE_ROOT" > /comfyui/extra_model_paths.yaml
 
-# 7. Установка владельца
+# 6. Установка прав
 RUN chown -R runpod:runpod /comfyui /home/runpod
 
 USER runpod
+```
+
+### 🔍 Ключевые изменения:
+
+1. **Используем стабильный репозиторий PuLID**:
+   ```dockerfile
+   wget -q https://github.com/ToTheBeginning/PuLID/archive/refs/heads/main.zip
+   mv PuLID-main ComfyUI-PuLID
+   ```
