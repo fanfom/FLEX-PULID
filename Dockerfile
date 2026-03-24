@@ -7,8 +7,6 @@ RUN apt-get update -y && \
     apt-get install -y --no-install-recommends \
     wget \
     unzip \
-    python3-dev \
-    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 # 2. Фикс совместимости NumPy
@@ -41,17 +39,23 @@ RUN mkdir -p $INSIGHTFACE_ROOT && \
 RUN printf "insightface:\n  base_path: %s\npulid:\n  base_path: %s/models/pulid\ncontrolnet:\n  base_path: %s/models/controlnet\nclip_vision:\n  base_path: %s/models/clip_vision" \
     "$INSIGHTFACE_ROOT" "$INSIGHTFACE_ROOT" "$INSIGHTFACE_ROOT" "$INSIGHTFACE_ROOT" > /comfyui/extra_model_paths.yaml
 
-# 6. Исправление handler.py
-RUN if [ ! -f "/comfyui/handler.py" ]; then \
-        echo "from ComfyUI_handler import ComfyUI_Handler" > /comfyui/handler.py; \
-        echo "handler = ComfyUI_Handler()" >> /comfyui/handler.py; \
-    fi
+# 6. Гарантированная установка ComfyUI_handler
+RUN wget -q https://raw.githubusercontent.com/runpod/runpod-worker-comfy/main/ComfyUI_handler.py -O /comfyui/ComfyUI_handler.py
 
-# 7. Проверка установки (для отладки)
-RUN echo "Проверка PuLID:" && \
+# 7. Гарантированное создание handler.py
+RUN echo "from ComfyUI_handler import ComfyUI_Handler" > /comfyui/handler.py && \
+    echo "handler = ComfyUI_Handler()" >> /comfyui/handler.py
+
+# 8. Проверка установки
+RUN echo "=== Проверка критических файлов ===" && \
+    ls -la /comfyui/ComfyUI_handler.py && \
+    ls -la /comfyui/handler.py && \
+    echo "=== Содержимое handler.py ===" && \
+    cat /comfyui/handler.py && \
+    echo "=== Проверка PuLID ===" && \
     ls -la /comfyui/custom_nodes/ComfyUI-PuLID && \
-    echo "Содержимое __init__.py:" && \
+    echo "=== Содержимое __init__.py ===" && \
     cat /comfyui/custom_nodes/ComfyUI-PuLID/__init__.py
 
-# 8. Запуск обработчика
+# 9. Запуск обработчика
 CMD ["python", "-u", "/comfyui/handler.py"]
