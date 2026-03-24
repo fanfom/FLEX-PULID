@@ -16,10 +16,10 @@ RUN apt-get update -y && \
 # Обновляем pip
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 
-# Ставим onnxruntime-gpu — определяем версию CUDA через nvcc или nvidia-smi
+# Определяем версию CUDA через torch и ставим onnxruntime-gpu
 RUN CUDA_VER=$(python3 -c "import torch; v=torch.version.cuda; print(v[:4] if v else '0')" 2>/dev/null || echo "0") && \
     echo "Detected CUDA: $CUDA_VER" && \
-    if echo "$CUDA_VER" | grep -qE "^12\.(1|2|3|4|5|6)"; then \
+    if echo "$CUDA_VER" | grep -qE "^12\."; then \
         pip install --no-cache-dir onnxruntime-gpu==1.18.0; \
     elif echo "$CUDA_VER" | grep -qE "^11\."; then \
         pip install --no-cache-dir onnxruntime-gpu==1.16.3; \
@@ -27,14 +27,13 @@ RUN CUDA_VER=$(python3 -c "import torch; v=torch.version.cuda; print(v[:4] if v 
         pip install --no-cache-dir onnxruntime-gpu; \
     fi
 
-# Ставим insightface и зависимости — без жёстких версий opencv и Pillow
-# чтобы не конфликтовать с тем, что уже есть в базовом образе
+# Ставим insightface и зависимости
 RUN pip install --no-cache-dir \
     insightface==0.7.3 \
     scikit-image \
     scipy
 
-# opencv ставим отдельно — только если не установлен
+# opencv ставим только если не установлен
 RUN python3 -c "import cv2; print('cv2 OK:', cv2.__version__)" 2>/dev/null || \
     pip install --no-cache-dir opencv-python-headless
 
@@ -45,32 +44,19 @@ RUN cd /comfyui/custom_nodes && \
     mv PuLID-main ComfyUI-PuLID && \
     rm main.zip
 
-# Создаём корректный __init__.py для ComfyUI
-RUN cat > /comfyui/custom_nodes/ComfyUI-PuLID/__init__.py << 'EOF'
-from .nodes import NODE_CLASS_MAPPINGS, NODE_DISPLAY_NAME_MAPPINGS
-__all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS']
-EOF
+# __init__.py для ComfyUI — через printf, без heredoc
+RUN printf 'from .nodes import NODE_CLASS_MAPPINGS, NODE_DISPLAY_NAME_MAPPINGS\n__all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]\n' \
+    > /comfyui/custom_nodes/ComfyUI-PuLID/__init__.py
 
-# Настройка путей к моделям InsightFace
+# Пути InsightFace
 RUN mkdir -p /root/.insightface && \
     ln -sf /runpod-volume/models/insightface /root/.insightface/models
 
-# extra_model_paths.yaml для ComfyUI
-RUN cat > /comfyui/extra_model_paths.yaml << 'EOF'
-comfyui:
-    base_path: /comfyui/
-    checkpoints: models/checkpoints/
-    clip: models/clip/
-    clip_vision: /runpod-volume/models/clip_vision/
-    controlnet: /runpod-volume/models/controlnet/
-    pulid: /runpod-volume/models/pulid/
-    insightface: /runpod-volume/models/insightface/
+# extra_model_paths.yaml — через printf, без heredoc
+RUN printf 'comfyui:\n    base_path: /comfyui/\n    clip_vision: /runpod-volume/models/clip_vision/\n    controlnet: /runpod-volume/models/controlnet/\n    pulid: /runpod-volume/models/pulid/\n    insightface: /runpod-volume/models/insightface/\n\ninsightface:\n    base_path: /runpod-volume/models/insightface\n' \
+    > /comfyui/extra_model_paths.yaml
 
-insightface:
-    base_path: /runpod-volume/models/insightface
-EOF
-
-# Проверка что всё импортируется
+# Проверка импортов
 RUN python3 -c "import insightface; import cv2; import onnxruntime; print('All imports OK')"
 
 USER 1000
