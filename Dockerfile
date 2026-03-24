@@ -23,7 +23,7 @@ RUN pip install --no-cache-dir onnxruntime-gpu==1.18.0
 # Установка insightface и зависимостей
 # insightface требует g++ для сборки Cython-расширения
 RUN pip install --no-cache-dir \
-    insightface==0.7.3 \
+    insightface\
     scikit-image \
     scipy
 
