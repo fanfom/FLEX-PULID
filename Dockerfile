@@ -2,52 +2,38 @@ FROM runpod/worker-comfyui:5.8.5-flux1-dev
 
 USER root
 
-# Очистка кеша пакетов и обновление
-RUN apt-get clean && \
-    rm -rf /var/lib/apt/lists/* && \
-    apt-get update -y
-
-# Установка системных зависимостей
-RUN apt-get install -y --no-install-recommends \
+# 1. Устанавливаем только необходимые системные пакеты
+RUN apt-get update -y && \
+    apt-get install -y --no-install-recommends \
     libgl1 \
-    libglib2.0-0 \
     wget \
-    unzip
+    unzip \
+    && rm -rf /var/lib/apt/lists/*
 
-# Обновление pip и установка зависимостей с совместимыми версиями
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir \
+# 2. Минимальный набор Python-зависимостей (+ force reinstall для конфликтующих)
+RUN pip install --no-cache-dir --force-reinstall \
     insightface==0.7.3 \
-    opencv-python-headless==4.9.0.80 \
-    Pillow==10.2.0 \
-    scikit-image==0.22.0 \
-    scipy==1.13.0
-# Динамическая установка onnxruntime-gpu
-RUN if [ -f /usr/local/cuda/version.txt ]; then \
-        cuda_ver=$(cat /usr/local/cuda/version.txt | awk '{print $3}' | cut -d. -f1-2); \
-        if [ "$cuda_ver" = "12.1" ]; then \
-            pip install --no-cache-dir onnxruntime-gpu==1.17.1; \
-        else \
-            pip install --no-cache-dir onnxruntime-gpu==1.15.1; \
-        fi; \
-    else \
-        pip install --no-cache-dir onnxruntime; \
-    fi
+    onnxruntime \  # Используем CPU-версию как страховку
+    opencv-python-headless==4.9.0.80
 
-# Установка и конфигурация PuLID
+# 3. Установка PuLID без скачивания - локальное копирование
+ADD https://github.com/ToTheBeginning/PuLID/archive/refs/heads/main.zip /tmp/pulid.zip
 RUN cd /comfyui/custom_nodes && \
-    wget -q https://github.com/ToTheBeginning/PuLID/archive/refs/heads/main.zip && \
-    unzip -q main.zip && \
+    unzip -q /tmp/pulid.zip && \
     mv PuLID-main ComfyUI-PuLID && \
-    rm main.zip && \
+    rm /tmp/pulid.zip && \
     echo "from .nodes import NODE_CLASS_MAPPINGS, NODE_DISPLAY_NAME_MAPPINGS" > ComfyUI-PuLID/__init__.py && \
     echo "__all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS']" >> ComfyUI-PuLID/__init__.py
 
-# Настройка InsightFace
-RUN mkdir -p /root/.insightface && \
-    ln -s /runpod-volume/models/insightface /root/.insightface/models && \
-    printf "insightface:\n  base_path: /runpod-volume/models/insightface\n" > /comfyui/extra_model_paths.yaml
-
+# 4. Настройка пути InsightFace (важная оптимизация)
+RUN printf "insightface:\n  base_path: %s\n" "/runpod-volume/models/insightface" > /comfyui/extra_model_paths.yaml && \
+    mkdir -p /root/.insightface && \
+    ln -s /runpod-volume/models/insightface /root/.insightface/models
+    
 USER 1000
 
-CMD ["python", "-u", "/comfyui/handler.py"]
+# 5. Переопределение команды запуска для диагностики
+CMD echo "Загрузка зависимостей завершена" && \
+    nvidia-smi && \
+    python -c "import insightface; print(f'InsightFace version: {insightface.__version__}')" && \
+    python -u /comfyui/handler.py
