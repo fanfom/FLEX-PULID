@@ -1,64 +1,51 @@
 FROM runpod/worker-comfyui:5.8.5-flux1-dev
 
+# Исправляем проблему прав для совместимости с RunPod
 USER root
+RUN chown 1000:1000 /comfyui /runpod-volume
 
-# 1. Установка системных зависимостей
+# Устанавливаем системные зависимости
 RUN apt-get update -y && \
     apt-get install -y --no-install-recommends \
     wget \
     unzip \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. Обновление pip и установка базовых зависимостей
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir setuptools wheel
+# Устанавливаем необходимые Python-пакеты (без строгой версионности)
+RUN pip install --no-cache-dir \
+    insightface \
+    onnxruntime-gpu \
+    opencv-python-headless \
+    scikit-image \
+    scipy \
+    Pillow
 
-# 3. Фикс совместимости NumPy (устанавливаем первым)
-RUN pip install --no-cache-dir "numpy<2"
-
-# 4. Установка пакетов по отдельности для избежания конфликтов
-RUN pip install --no-cache-dir insightface==0.7.3
-RUN pip install --no-cache-dir onnxruntime-gpu==1.17.1
-RUN pip install --no-cache-dir opencv-python-headless==4.9.0.80
-RUN pip install --no-cache-dir scikit-image==0.22.0
-RUN pip install --no-cache-dir scipy==1.13.0
-RUN pip install --no-cache-dir Pillow==10.2.0
-
-# 5. Установка PuLID с исправлением структуры
+# Устанавливаем и конфигурируем PuLID
 RUN cd /comfyui/custom_nodes && \
     wget -q https://github.com/ToTheBeginning/PuLID/archive/refs/heads/main.zip -O pulid.zip && \
     unzip -q pulid.zip && \
     mv PuLID-main ComfyUI-PuLID && \
     rm pulid.zip && \
-    # Создаем недостающий __init__.py
     echo "from .nodes import NODE_CLASS_MAPPINGS, NODE_DISPLAY_NAME_MAPPINGS" > ComfyUI-PuLID/__init__.py && \
     echo "__all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS']" >> ComfyUI-PuLID/__init__.py
 
-# 6. Настройка InsightFace
-ENV INSIGHTFACE_ROOT=/runpod-volume/models/insightface
-RUN mkdir -p $INSIGHTFACE_ROOT && \
+# Настройка InsightFace
+RUN mkdir -p /runpod-volume/models/insightface && \
     mkdir -p /root/.insightface && \
-    ln -s $INSIGHTFACE_ROOT /root/.insightface/models
+    ln -s /runpod-volume/models/insightface /root/.insightface/models
 
-# 7. Создание конфига
-RUN printf "insightface:\n  base_path: %s\npulid:\n  base_path: %s/models/pulid\ncontrolnet:\n  base_path: %s/models/controlnet\nclip_vision:\n  base_path: %s/models/clip_vision" \
-    "$INSIGHTFACE_ROOT" "$INSIGHTFACE_ROOT" "$INSIGHTFACE_ROOT" "$INSIGHTFACE_ROOT" > /comfyui/extra_model_paths.yaml
+# Конфигурация модели
+RUN printf "insightface:\n  base_path: %s" "/runpod-volume/models/insightface" > /comfyui/extra_model_paths.yaml
 
-# 8. Гарантированная установка ComfyUI_handler
-RUN wget -q https://raw.githubusercontent.com/runpod/runpod-worker-comfy/main/ComfyUI_handler.py -O /comfyui/ComfyUI_handler.py
-
-# 9. Гарантированное создание handler.py
+# Убеждаемся, что handler.py корректен
 RUN echo "from ComfyUI_handler import ComfyUI_Handler" > /comfyui/handler.py && \
     echo "handler = ComfyUI_Handler()" >> /comfyui/handler.py
 
-# 10. Проверка установки
-RUN echo "=== Проверка установленных пакетов ===" && \
-    pip list && \
-    echo "=== Проверка критических файлов ===" && \
-    ls -la /comfyui/ComfyUI_handler.py && \
-    ls -la /comfyui/handler.py && \
-    echo "=== Проверка PuLID ===" && \
-    ls -la /comfyui/custom_nodes/ComfyUI-PuLID
+# Проверка установки - минимум для отладки
+RUN echo "Check handler:" && cat /comfyui/handler.py && \
+    echo "Check PuLID:" && ls /comfyui/custom_nodes/ComfyUI-PuLID
 
-# 11. Запуск обработчика
-CMD ["python", "-u", "/comfyui/handler.py"]
+# Возвращаемся к рекомендуемым правам
+USER 1000
+
+# Оставляем стандартный CMD как есть
