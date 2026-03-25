@@ -33,9 +33,16 @@ RUN cd /comfyui/custom_nodes && \
     git clone --depth 1 https://github.com/ToTheBeginning/PuLID.git ComfyUI-PuLID
 
 # If PuLID has requirements.txt, install them (safe even if empty/missing)
-RUN if [ -f /comfyui/custom_nodes/ComfyUI-PuLID/requirements.txt ]; then \
-      pip install --no-cache-dir -r /comfyui/custom_nodes/ComfyUI-PuLID/requirements.txt; \
-    fi
+# DO NOT install PuLID requirements.txt as-is (it pins torch etc.)
+RUN pip install --no-cache-dir \
+      opencv-python-headless \
+      timm \
+      einops \
+      ftfy \
+      facexlib \
+      safetensors \
+      torchsde
+
 
 # Ensure ComfyUI can write to user/temp dirs when running as UID 1000
 RUN mkdir -p /comfyui/temp /comfyui/user /comfyui/user/__manager /comfyui/user/default && \
